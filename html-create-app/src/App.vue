@@ -1,4 +1,22 @@
-<script setup></script>
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+
+// WYSIWY
+const editArea = ref<HTMLElement | null>(null)
+const foo = ref('')
+
+onMounted(() => {
+  if (editArea.value) {
+    editArea.value.innerHTML = '<p>ここに文字を入力してください</p>'
+    foo.value = editArea.value.innerHTML
+    console.log(foo.value)
+  }
+})
+
+const onInput = (e: Event) => {
+  foo.value = (e.target as HTMLElement).innerHTML
+}
+</script>
 <template>
   <h1>HTML Create App</h1>
   <div class="container">
@@ -23,12 +41,12 @@
         <button id="other">下線</button>
         <button id="other">取消し線</button>
       </div>
-      <div contenteditable="true" @input="onInput" class="editArea"></div>
+      <div contenteditable="true" @input="onInput" class="editArea" ref="editArea"></div>
     </div>
 
     <div class="previewArea">
       <h3>HTMLプレビュー</h3>
-      <div class="htmlPreview"></div>
+      <div class="htmlPreview">{{ foo }}</div>
     </div>
   </div>
 </template>
