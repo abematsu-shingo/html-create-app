@@ -1,20 +1,114 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
-// WYSIWY
-const editArea = ref<HTMLElement | null>(null)
-const foo = ref('')
+// WYSIWYGエリアの中身
+const editValue = ref<HTMLElement | null>(null)
+// previewエリアの中身
+const previewValue = ref('')
 
+// マウント時にサンプル表示
 onMounted(() => {
-  if (editArea.value) {
-    editArea.value.innerHTML = '<p>ここに文字を入力してください</p>'
-    foo.value = editArea.value.innerHTML
-    console.log(foo.value)
+  if (editValue.value) {
+    editValue.value.innerHTML = '<p>ここに文字を入力してください</p>'
+    previewValue.value = editValue.value.innerHTML
+    // console.log(previewValue.value)
   }
 })
 
+// 現在の選択範囲を取得する関数
+const getSelection = () => {
+  if (window.getSelection) {
+    return window.getSelection()
+  }
+  return null
+}
+
+// テキストスタイルを適用
+// styleType クリックされたスタイル適用ボタン
+const onStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
+  const selection = getSelection()
+  // getSelection()がnull or カーソルが存在しない場合、何もしない
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+  const selectedText = range.toString()
+  console.log(selectedText)
+  console.log(range.commonAncestorContainer.parentElement)
+
+  // // 選択範囲がない場合は、カーソルの位置に空の要素を挿入し、その中にカーソルを置く
+  // if (selectedText.length === 0) {
+  //   onEmptyStyle(styleType)
+  //   return
+  // }
+
+  let tagName: string
+  let cssProperty: string | null = null
+  let cssValue: string | null = null
+
+  switch (styleType) {
+    // クリックされたボタンが「太字」だった場合
+    // <strong></strong>
+    case 'bold':
+      tagName = 'strong'
+      break
+    // クリックされたボタンが「斜体」だった場合
+    // <em></em>
+    case 'italic':
+      tagName = 'em'
+      break
+    // クリックされたボタンが「下線」だった場合
+    // <span style="text-decoration: underline;"></span>
+    case 'underline':
+      tagName = 'span'
+      cssProperty = 'textDecoration'
+      cssValue = 'underline'
+      break
+    // クリックされたボタンが「取消し線」だった場合
+    // <span style="text-decoration: line-through;"></span>
+    case 'strikeThrough':
+      tagName = 'span'
+      cssProperty = 'textDecoration'
+      cssValue = 'line-through'
+      break
+    // クリックされたボタンがどれにも当てはまらない場合、関数終了
+    default:
+      return
+  }
+
+  clickTag(range, tagName, cssProperty, cssValue)
+
+  updateContent()
+}
+
+// クリックされたタグを適用
+const clickTag = (
+  range: Range,
+  tagName: string,
+  cssProperty: string | null = null,
+  cssValue: string | null = null,
+) => {
+  // 指定されたtagNameでタグを作成
+  const newNode = document.createElement(tagName)
+  // console.log(newNode)
+  if (cssProperty && cssValue) {
+    // cssPropertyとcssValueが指定されていた場合、style指定
+    ;(newNode.style as any)[cssProperty] = cssValue
+  }
+  // 選択範囲の要素を切り取り、newNodeの末尾に挿入
+  newNode.appendChild(range.extractContents())
+  // 上記で切り取られた後の選択範囲の最初にnewNodeを挿入
+  range.insertNode(newNode)
+}
+
+// スタイルを適用した後、htmlプレビューを更新
+const updateContent = () => {
+  if (editValue.value) {
+    previewValue.value = editValue.value.innerHTML
+  }
+}
+
 const onInput = (e: Event) => {
-  foo.value = (e.target as HTMLElement).innerHTML
+  previewValue.value = (e.target as HTMLElement).innerHTML
 }
 </script>
 <template>
@@ -24,29 +118,29 @@ const onInput = (e: Event) => {
       <h3>WYSIWYGエディタ</h3>
       <div class="toolbar">
         <label for="heading">見出し：</label>
-        <button id="heading">見出し1</button>
-        <button id="heading">見出し2</button>
-        <button id="heading">見出し3</button>
+        <button @click="onHeaedingStyle('h1')" id="heading">見出し1</button>
+        <button @click="onHeaedingStyle('h2')" id="heading">見出し2</button>
+        <button @click="onHeaedingStyle('h3')" id="heading">見出し3</button>
 
         <label for="list">リスト：</label>
-        <button id="list">通常リスト</button>
-        <button id="list">番号リスト</button>
+        <button @click="onListStyle('unordered')" id="list">通常リスト</button>
+        <button @click="onListStyle('ordered')" id="list">番号リスト</button>
 
         <label for="textColor">文字色：</label>
-        <input type="color" id="textColor" />
+        <input type="color" @input="onColorStyle($event)" id="textColor" value="#333333" />
 
         <label for="other">その他：</label>
-        <button id="other">太字</button>
-        <button id="other">斜体</button>
-        <button id="other">下線</button>
-        <button id="other">取消し線</button>
+        <button @click="onStyle('bold')" id="other">太字</button>
+        <button @click="onStyle('italic')" id="other">斜体</button>
+        <button @click="onStyle('underline')" id="other">下線</button>
+        <button @click="onStyle('strikeThrough')" id="other">取消し線</button>
       </div>
-      <div contenteditable="true" @input="onInput" class="editArea" ref="editArea"></div>
+      <div contenteditable="true" @input="onInput" class="editArea" ref="editValue"></div>
     </div>
 
     <div class="previewArea">
       <h3>HTMLプレビュー</h3>
-      <div class="htmlPreview">{{ foo }}</div>
+      <div class="htmlPreview">{{ previewValue }}</div>
     </div>
   </div>
 </template>
