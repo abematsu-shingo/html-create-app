@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 // WYSIWYGエリアの中身
 const editValue = ref<HTMLElement | null>(null)
@@ -15,6 +15,14 @@ onMounted(() => {
   }
 })
 
+// ユーザーの入力内容をプレビューに反映
+const onInput = (e: Event) => {
+  previewValue.value = (e.target as HTMLElement).innerHTML
+}
+const foo = computed(() => {
+  return previewValue.value
+})
+
 // 現在の選択範囲を取得する関数
 const getSelection = () => {
   if (window.getSelection) {
@@ -23,24 +31,30 @@ const getSelection = () => {
   return null
 }
 
-// テキストスタイルを適用
+/**
+ * スタイルタグを、解除/適用する処理
+ */
 // styleType クリックされたスタイル適用ボタン
 const onStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
+  // ユーザーの選択範囲
   const selection = getSelection()
   // getSelection()がnull or カーソルが存在しない場合、何もしない
   if (!selection || selection.rangeCount === 0) return
 
+  // 選択範囲のオブジェクトデータ
   const range = selection.getRangeAt(0)
+  // 選択範囲の文字列
   const selectedText = range.toString()
-  console.log(selectedText)
-  console.log(range.commonAncestorContainer.parentElement)
+  // console.log(selectedText)
+  // console.log(range.commonAncestorContainer.parentElement)
 
   // // 選択範囲がない場合は、カーソルの位置に空の要素を挿入し、その中にカーソルを置く
-  // if (selectedText.length === 0) {
-  //   onEmptyStyle(styleType)
-  //   return
-  // }
+  if (selectedText.length === 0) {
+    onEmptyStyle(styleType)
+    return
+  }
 
+  // ボタンの引数から取得したパラメータ変数を変数に格納
   let tagName: string
   let cssProperty: string | null = null
   let cssValue: string | null = null
@@ -75,13 +89,147 @@ const onStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') =
       return
   }
 
-  clickTag(range, tagName, cssProperty, cssValue)
+  /**
+   * 選択範囲の「共通の始祖要素」を確認し、DOM操作を行う要素の特定処理
+   */
+  // 共通の始祖要素を取得
+  const commonAncestor = range.commonAncestorContainer
+  // 共通の始祖要素全体を格納する変数
+  let parentElement: HTMLElement | null = null
+  // 選択範囲がテキストのみだった場合、テキストが属する要素を格納
+  if (commonAncestor.nodeType === Node.TEXT_NODE) {
+    parentElement = commonAncestor.parentElement
+  }
+  // 選択範囲にエレメントタグが含まれている場合、変数に親要素ごと格納
+  else if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+    parentElement = commonAncestor as HTMLElement
+  }
+  console.log(commonAncestor)
+  console.log(parentElement)
+
+  /**
+   * 特定したDOM要素にすでにスタイルが適用されているかの確認し、スタイルの解除/適用を判別
+   */
+  // スタイルチェック関数を呼び出し、引数の文字列が含まれているか確認
+  const isApplied = checkStyle(parentElement, tagName, cssProperty, cssValue)
+  // スタイルの解除
+  if (isApplied) {
+    unSetStyle(range, tagName, cssProperty, cssValue)
+  }
+  // スタイルの適用
+  else {
+    setStyle(range, tagName, cssProperty, cssValue)
+  }
 
   updateContent()
 }
 
+// スタイルが適用されているかの確認
+const checkStyle = (
+  parentElement: HTMLElement | null,
+  tagName: string,
+  cssProperty: string | null,
+  cssValue: string | null,
+): boolean => {
+  if (!parentElement) return false
+
+  /**
+   * 祖先要素に指定のタグ・スタイルがあるかを確認
+   * 祖先要素に指定タグ・スタイルが存在しない場合、子孫要素をに存在しているかを確認
+   */
+  // 祖先要素が指定のタグかつ、style適用済みかを確認
+  if (parentElement.nodeName.toLowerCase() === tagName) {
+    if (cssProperty && cssValue) {
+      return (parentElement as HTMLElement).style[cssProperty as any] === cssValue
+    }
+    return true
+  }
+
+  // 祖先要素に指定のタグがない場合、子孫要素に指定のタグが存在するかを確認
+  const elements = parentElement.querySelectorAll(tagName)
+  for (const elem of Array.from(elements)) {
+    if (rangeContainsNode(getSelection()!.getRangeAt(0), elem)) {
+      if (cssProperty && cssValue) {
+        if ((elem as HTMLElement).style[cssProperty as any] === cssValue) {
+          return true
+        }
+      } else {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// クリックされたタグを解除
+const unSetStyle = (
+  range: Range,
+  tagName: string,
+  cssProperty: string | null = null,
+  cssValue: string | null = null,
+) => {
+  const commonAncestor = range.commonAncestorContainer
+  let parentElement: HTMLElement | null = null
+  if (commonAncestor.nodeType === Node.TEXT_NODE) {
+    parentElement = commonAncestor.parentElement
+  } else if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+    parentElement = commonAncestor as HTMLElement
+  }
+
+  // palentElementに値が入っていなければ、関数の終了
+  if (!parentElement) return
+
+  /**
+   * 指定タグの親要素を確認して、スタイルを解除する処理
+   */
+  // 取得した始祖要素（parentElement）をwhile文で再利用するために、変数を再定義
+  let targetElemnt: HTMLElement | null = parentElement
+  // targetElementの中身がユーザーの入力内容と一致しない場合
+  while (targetElemnt && targetElemnt !== editValue.value) {
+    // targetElementの中身のtag名とtagNameが一致する場合
+    if (targetElemnt.nodeName.toLowerCase() === tagName) {
+      // targetElementにstyleが設定されている場合
+      if (cssProperty && cssValue) {
+        // targetElementのstyleが引数と一致する場合
+        if ((targetElemnt.style as any)[cssProperty] === cssValue) {
+          // targetElementのタグが<span style="textDecoration: cssValue;">だった場合
+          if (targetElemnt.nodeName.toLowerCase() === 'span' && cssProperty && cssValue) {
+            // style削除
+            ;(targetElemnt.style as any)[cssProperty] = ''
+            // styleが削除されたら、タグを削除
+            if (!targetElemnt.style.length) {
+              unSetTag(targetElemnt)
+            }
+          } else {
+            // <span>タグではない場合、タグを削除
+            unSetTag(targetElemnt)
+          }
+          return
+        }
+        // styleが設定されていない場合、タグを削除
+      } else {
+        unSetTag(targetElemnt)
+        return
+      }
+    }
+    // タグを削除した中身をtargetElementに代入
+    targetElemnt = targetElemnt.parentElement
+  }
+}
+
+// 選択箇所のノードを解除し、親ノードの末尾に移動
+const unSetTag = (node: Node) => {
+  const parent = node.parentNode
+  if (parent) {
+    while (node.firstChild) {
+      parent.insertBefore(node.firstChild, node)
+    }
+    parent.removeChild(node)
+  }
+}
+
 // クリックされたタグを適用
-const clickTag = (
+const setStyle = (
   range: Range,
   tagName: string,
   cssProperty: string | null = null,
@@ -100,15 +248,74 @@ const clickTag = (
   range.insertNode(newNode)
 }
 
+/**
+ * ノードが範囲内に含まれているかチェック
+ */
+const rangeContainsNode = (range: Range, node: Node) => {
+  return range.comparePoint(node, 0) >= 0 && range.comparePoint(node, node.childNodes.length) <= 0
+}
+
+/**
+ * ユーザーが範囲選択していない場合、カーソル位置に空の要素を挿入
+ */
+const onEmptyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
+  const selection = getSelection()
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+  let tagName: string
+  let cssProperty: string | null = null
+  let cssValue: string | null = null
+
+  switch (styleType) {
+    case 'bold':
+      tagName = 'strong'
+      break
+    case 'italic':
+      tagName = 'italic'
+      break
+    case 'underline':
+      tagName = 'span'
+      cssProperty = 'textDecoration'
+      cssValue = 'underline'
+    case 'strikeThrough':
+      tagName = 'span'
+      cssProperty = 'textDecoration'
+      cssValue = 'line-through'
+      break
+    default:
+      return
+  }
+
+  // ユーザーがクリックした該当ボタンの要素を生成
+  const newNode = document.createElement(tagName)
+  if (cssProperty && cssValue) {
+    ;(newNode.style as any)[cssProperty] === cssValue
+  }
+  // 作成した要素にZWS(zero width space)を挿入してカーソルを保持
+  newNode.appendChild(document.createTextNode('\uFEFF'))
+  range.insertNode(newNode)
+
+  /**
+   * カーソルを新しいノードの中に挿入
+   */
+  // ZWSの後にカーソル
+  range.setStart(newNode.firstChild!, 1)
+  // range.collapse(true) 範囲選択の開始位置と終了位置が同じ
+  range.collapse(true)
+  // ブラウザによる範囲選択無視の機能対応のため、一度選択した範囲をリセット
+  selection.removeAllRanges()
+  // 選択範囲を再度指定
+  selection.addRange(range)
+
+  updateContent()
+}
+
 // スタイルを適用した後、htmlプレビューを更新
 const updateContent = () => {
   if (editValue.value) {
     previewValue.value = editValue.value.innerHTML
   }
-}
-
-const onInput = (e: Event) => {
-  previewValue.value = (e.target as HTMLElement).innerHTML
 }
 </script>
 <template>
@@ -140,7 +347,7 @@ const onInput = (e: Event) => {
 
     <div class="previewArea">
       <h3>HTMLプレビュー</h3>
-      <div class="htmlPreview">{{ previewValue }}</div>
+      <div class="htmlPreview">{{ foo }}</div>
     </div>
   </div>
 </template>
