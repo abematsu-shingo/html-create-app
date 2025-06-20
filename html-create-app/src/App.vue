@@ -311,6 +311,53 @@ const onEmptyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThroug
   updateContent()
 }
 
+/**
+ * 見出しのスタイルを適用する
+ */
+const onHeaedingStyle = (headingType: string) => {
+  const selection = getSelection()
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+  let commonAncestor = range.commonAncestorContainer
+
+  if (commonAncestor.nodeType === Node.TEXT_NODE) {
+    commonAncestor = commonAncestor.parentNode!
+  }
+
+  if (!(commonAncestor instanceof HTMLElement)) return
+
+  // 段落要素または見出し要素を見つける
+  let blockElement: HTMLElement | null = commonAncestor
+  while (
+    blockElement &&
+    blockElement !== editValue.value &&
+    !['P', 'H1', 'H2', 'H3'].includes(blockElement.nodeName)
+  ) {
+    blockElement = blockElement.parentElement
+  }
+
+  if (!blockElement || blockElement === editValue.value) {
+    // ブロック要素が見つからない場合、新しいPタグを作成して適用
+    setStyle(range, headingType)
+  } else {
+    // 既存のブロック要素を新しいタグに置き換える
+    const newBlock = document.createElement(headingType)
+    while (blockElement.firstChild) {
+      newBlock.appendChild(blockElement.firstChild)
+    }
+    blockElement.parentNode?.replaceChild(newBlock, blockElement)
+
+    // カーソルを新しいブロック要素の中に維持
+    const newRange = document.createRange()
+    newRange.selectNodeContents(newBlock)
+    newRange.collapse(false) // カーソルをブロックの末尾に移動
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+  }
+  updateContent()
+}
+
 // スタイルを適用した後、htmlプレビューを更新
 const updateContent = () => {
   if (editValue.value) {
