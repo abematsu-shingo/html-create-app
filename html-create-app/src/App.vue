@@ -94,9 +94,6 @@ const keyDownHandler = (e: KeyboardEvent) => {
 const onInput = (e: Event) => {
   previewValue.value = (e.target as HTMLElement).innerHTML
 }
-const foo = computed(() => {
-  return previewValue.value
-})
 
 // 現在の選択範囲を取得する関数
 const getSelection = () => {
@@ -540,10 +537,14 @@ const onListStyle = (listType: 'unordered' | 'ordered') => {
 }
 
 // 文字色を変更する
+let colorValue = ref('#333333') // 初期値を設定
+// カラー入力のイベントハンドラー
 const onColorStyle = (event: Event) => {
   const target = event.target as HTMLInputElement
-  const corlor = target.value
-
+  colorValue.value = target.value
+}
+// 反映ボタンのクリックイベントハンドラー
+const setColor = () => {
   const selection = getSelection()
   if (!selection || selection.rangeCount === 0) return
 
@@ -553,7 +554,7 @@ const onColorStyle = (event: Event) => {
   if (selectedText.length === 0) {
     // 選択範囲がない場合は、カーソル位置に空の要素を挿入
     const span = document.createElement('span')
-    span.style.color = corlor
+    span.setAttribute('style', `color: ${colorValue.value}`)
     span.appendChild(document.createTextNode('\uFEFF')) // ZWSを挿入
     range.insertNode(span)
 
@@ -565,7 +566,7 @@ const onColorStyle = (event: Event) => {
   } else {
     // 選択範囲がある場合は、spanタグで囲む
     const span = document.createElement('span')
-    span.style.color = corlor
+    span.setAttribute('style', `color: ${colorValue.value}`)
     span.appendChild(range.extractContents()) // 選択範囲の内容をspanに挿入
     range.insertNode(span) // spanを選択範囲の位置に挿入
   }
@@ -585,23 +586,24 @@ const updateContent = () => {
     <div class="wysiwygArea">
       <h3>WYSIWYGエディタ</h3>
       <div class="toolbar">
-        <label for="heading">見出し：</label>
-        <button @click="onHeaedingStyle('h1')" id="heading">見出し1</button>
-        <button @click="onHeaedingStyle('h2')" id="heading">見出し2</button>
-        <button @click="onHeaedingStyle('h3')" id="heading">見出し3</button>
+        <label>見出し：</label>
+        <button @click="onHeaedingStyle('h1')">見出し1</button>
+        <button @click="onHeaedingStyle('h2')">見出し2</button>
+        <button @click="onHeaedingStyle('h3')">見出し3</button>
 
-        <label for="list">リスト：</label>
-        <button @click="onListStyle('unordered')" id="list">通常リスト</button>
-        <button @click="onListStyle('ordered')" id="list">番号リスト</button>
+        <label>リスト：</label>
+        <button @click="onListStyle('unordered')">通常リスト</button>
+        <button @click="onListStyle('ordered')">番号リスト</button>
 
-        <label for="textColor">文字色：</label>
-        <input type="color" @change="onColorStyle($event)" id="textColor" value="#333333" />
+        <label>文字色：</label>
+        <input type="color" id="color-picker" @input="onColorStyle($event)" value="#333333" />
+        <button @click="setColor">反映</button>
 
-        <label for="other">その他：</label>
-        <button @click="onStyle('bold')" id="other">太字</button>
-        <button @click="onStyle('italic')" id="other">斜体</button>
-        <button @click="onStyle('underline')" id="other">下線</button>
-        <button @click="onStyle('strikeThrough')" id="other">取消し線</button>
+        <label>その他：</label>
+        <button @click="onStyle('bold')">太字</button>
+        <button @click="onStyle('italic')">斜体</button>
+        <button @click="onStyle('underline')">下線</button>
+        <button @click="onStyle('strikeThrough')">取消し線</button>
       </div>
       <div
         contenteditable="true"
@@ -614,7 +616,7 @@ const updateContent = () => {
 
     <div class="previewArea">
       <h3>HTMLプレビュー</h3>
-      <div class="htmlPreview">{{ foo }}</div>
+      <div class="htmlPreview">{{ previewValue }}</div>
     </div>
   </div>
 </template>
