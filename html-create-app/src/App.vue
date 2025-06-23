@@ -358,6 +358,112 @@ const onHeaedingStyle = (headingType: string) => {
   updateContent()
 }
 
+// リストのスタイルを適用/解除する
+const onListStyle = (listType: 'unordered' | 'ordered') => {
+  const selection = getSelection()
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+  const selectedText = range.toString()
+
+  let commonAncestor = range.commonAncestorContainer
+  if (commonAncestor.nodeType === Node.TEXT_NODE) {
+    commonAncestor = commonAncestor.parentNode!
+  }
+
+  if (!(commonAncestor instanceof HTMLElement)) return
+
+  // リスト要素を見つける
+  let listElement: HTMLUListElement | HTMLOListElement | null = null
+  let listItemElement: HTMLElement | null = null
+
+  // LI要素、またはUL/OL要素から親を探す
+  let currentElement: HTMLElement | null = commonAncestor
+  while (currentElement && currentElement !== editValue.value) {
+    if (currentElement.nodeName === 'LI') {
+      listItemElement = currentElement
+    } else if (currentElement.nodeName === 'UL' || currentElement.nodeName === 'OL') {
+      listElement = currentElement as HTMLUListElement | HTMLOListElement
+      break
+    }
+    currentElement = currentElement.parentElement
+  }
+
+  if (listElement && listItemElement) {
+    // 既存のリスト要素が見つかった場合
+    if (
+      (listType === 'unordered' && listElement.nodeName === 'UL') ||
+      (listType === 'ordered' && listElement.nodeName === 'OL')
+    ) {
+      // 同じタイプのリストが選択されている場合、解除
+      const parent = listElement.parentNode
+      if (parent) {
+        // LIの内容をPタグに変更してリストを解除
+        const newParagraph = document.createElement('p')
+        while (listItemElement.firstChild) {
+          newParagraph.appendChild(listItemElement.firstChild)
+        }
+        // U/OLタグの前に挿入
+        parent.insertBefore(newParagraph, listElement)
+        // リスト要素を削除
+        listItemElement.remove()
+        // リスト要素が空になった場合、リスト自体を削除
+        if (listElement.children.length === 0) {
+          listElement.remove()
+        }
+
+        // カーソルを新しいPタグの末尾に移動
+        const newRange = document.createRange()
+        newRange.selectNodeContents(newParagraph)
+        newRange.collapse(false) // カーソルをブロックの末尾に移動
+        selection.removeAllRanges()
+        selection.addRange(newRange)
+      }
+    } else {
+      // 異なるタイプのリストが選択されている場合、リストを変更
+      const newListTag = listType === 'unordered' ? 'UL' : 'OL'
+      const newList = document.createElement(newListTag)
+
+      // 既存のLI要素を新しいリストに移動
+      while (listElement.firstChild) {
+        newList.appendChild(listElement.firstChild)
+      }
+      listElement.parentNode?.replaceChild(newList, listElement)
+    }
+
+    // カーソルを元の位置に維持
+    const targetRange = document.getSelection()?.focusNode
+    const newRange = document.createRange()
+    newRange.setStart(targetRange!, 0)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+  } else {
+    // リスト要素が見つからない場合、新しいリストを作成
+    const newListTag = listType === 'unordered' ? 'UL' : 'OL'
+    const newList = document.createElement(newListTag)
+    const newListItem = document.createElement('li')
+
+    if (selectedText.length > 0) {
+      // 選択範囲がある場合、内容を新しいLIに追加
+      newListItem.appendChild(range.extractContents())
+    } else {
+      // 選択範囲がない場合、空のZWSを挿入
+      newListItem.appendChild(document.createTextNode('\uFEFF'))
+    }
+
+    newList.appendChild(newListItem)
+    range.insertNode(newList)
+
+    // カーソルを新しいリストの末尾に移動
+    const newRange = document.createRange()
+    newRange.selectNodeContents(newListItem)
+    newRange.collapse(false) // カーソルをブロックの末尾に移動
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+  }
+  updateContent()
+}
+
 // スタイルを適用した後、htmlプレビューを更新
 const updateContent = () => {
   if (editValue.value) {
