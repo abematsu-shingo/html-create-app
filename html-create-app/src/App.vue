@@ -15,6 +15,13 @@ onMounted(() => {
   }
 })
 
+// 選択範囲がeditArea内にあるか確認する関数
+const isEditArea = (selection: Selection | null): boolean => {
+  if (!selection || !editValue.value || selection.rangeCount === 0) return false
+  const range = selection.getRangeAt(0)
+  return editValue.value.contains(range.commonAncestorContainer)
+}
+
 // 改行をシンプルな<br>タグに変換
 const keyDownHandler = (e: KeyboardEvent) => {
   if (e.key === 'Enter') {
@@ -22,7 +29,7 @@ const keyDownHandler = (e: KeyboardEvent) => {
     e.preventDefault()
 
     const selection = getSelection()
-    if (!selection || selection.rangeCount === 0) return
+    if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
     const range = selection.getRangeAt(0)
     // 新しい<br>要素を作成
@@ -110,8 +117,7 @@ const getSelection = () => {
 const onStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
   // ユーザーの選択範囲
   const selection = getSelection()
-  // getSelection()がnull or カーソルが存在しない場合、何もしない
-  if (!selection || selection.rangeCount === 0) return
+  if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
   // 選択範囲のオブジェクトデータ
   const range = selection.getRangeAt(0)
@@ -332,7 +338,7 @@ const rangeContainsNode = (range: Range, node: Node) => {
  */
 const onEmptyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
   const selection = getSelection()
-  if (!selection || selection.rangeCount === 0) return
+  if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
   const range = selection.getRangeAt(0)
   let tagName: string
@@ -388,7 +394,7 @@ const onEmptyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThroug
  */
 const onHeaedingStyle = (headingType: string) => {
   const selection = getSelection()
-  if (!selection || selection.rangeCount === 0) return
+  if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
   const range = selection.getRangeAt(0)
   let commonAncestor = range.commonAncestorContainer
@@ -433,7 +439,7 @@ const onHeaedingStyle = (headingType: string) => {
 // リストのスタイルを適用/解除する
 const onListStyle = (listType: 'unordered' | 'ordered') => {
   const selection = getSelection()
-  if (!selection || selection.rangeCount === 0) return
+  if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
   const range = selection.getRangeAt(0)
   const selectedText = range.toString()
@@ -546,7 +552,7 @@ const onColorStyle = (event: Event) => {
 // 反映ボタンのクリックイベントハンドラー
 const setColor = () => {
   const selection = getSelection()
-  if (!selection || selection.rangeCount === 0) return
+  if (!isEditArea(selection) || !selection) return // editArea外なら何もしない
 
   const range = selection.getRangeAt(0)
   const selectedText = range.toString()
