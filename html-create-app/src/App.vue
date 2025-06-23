@@ -15,6 +15,81 @@ onMounted(() => {
   }
 })
 
+// 改行をシンプルな<br>タグに変換
+const keyDownHandler = (e: KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    // デフォルトの改行動作をキャンセル
+    e.preventDefault()
+
+    const selection = getSelection()
+    if (!selection || selection.rangeCount === 0) return
+
+    const range = selection.getRangeAt(0)
+    // 新しい<br>要素を作成
+    const br = document.createElement('br')
+
+    const startContainer = range.startContainer
+    const startOffset = range.startOffset
+
+    let inserted = false
+
+    // カーソルがテキストノードの末尾、または要素ノードの直後にあるかチェック
+    let currentBlockElement: HTMLElement | null = null
+    let checkNode: Node | null = startContainer
+
+    // editValueの直下にある要素を取得
+    while (checkNode && checkNode !== editValue.value) {
+      if (
+        checkNode instanceof HTMLElement &&
+        ['P', 'H1', 'H2', 'H3', 'LI'].includes(checkNode.nodeName)
+      ) {
+        currentBlockElement = checkNode
+        break
+      }
+      checkNode = checkNode.parentNode
+    }
+
+    if (currentBlockElement) {
+      // 現在のカーソル位置がブロック要素の末尾であるか確認
+      const isAtEndOfBlock =
+        (startContainer.nodeType === Node.TEXT_NODE &&
+          startOffset === (startContainer as Text).length &&
+          startContainer.parentNode === currentBlockElement) ||
+        (startContainer.nodeType === Node.ELEMENT_NODE &&
+          startOffset === startContainer.childNodes.length &&
+          startContainer === currentBlockElement)
+
+      if (isAtEndOfBlock) {
+        // ブロック要素の末尾にカーソルがある場合、<br>を挿入
+        if (currentBlockElement.nextSibling) {
+          // 次の要素がある場合、<br>を挿入
+          currentBlockElement.parentNode?.insertBefore(br, currentBlockElement.nextSibling)
+        } else {
+          currentBlockElement.parentNode?.appendChild(br)
+        }
+        inserted = true
+
+        // カーソルを<br>の後ろに移動
+        range.setStartAfter(br)
+        range.collapse(true)
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+    }
+
+    // ブロック要素の末尾以外、もしくはブロック要素がない場合、カーソル位置に<br>を挿入
+    if (!inserted) {
+      range.insertNode(br)
+      range.setStartAfter(br)
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    updateContent()
+  }
+}
+
 // ユーザーの入力内容をプレビューに反映
 const onInput = (e: Event) => {
   previewValue.value = (e.target as HTMLElement).innerHTML
@@ -528,7 +603,13 @@ const updateContent = () => {
         <button @click="onStyle('underline')" id="other">下線</button>
         <button @click="onStyle('strikeThrough')" id="other">取消し線</button>
       </div>
-      <div contenteditable="true" @input="onInput" class="editArea" ref="editValue"></div>
+      <div
+        contenteditable="true"
+        @input="onInput"
+        @keydown="keyDownHandler"
+        class="editArea"
+        ref="editValue"
+      ></div>
     </div>
 
     <div class="previewArea">
