@@ -481,7 +481,7 @@ const onListStyle = (listType: 'unordered' | 'ordered') => {
         while (listItemElement.firstChild) {
           newParagraph.appendChild(listItemElement.firstChild)
         }
-        // U/OLタグの前に挿入
+        // UL/OLタグの前に挿入
         parent.insertBefore(newParagraph, listElement)
         // リスト要素を削除
         listItemElement.remove()
@@ -502,32 +502,37 @@ const onListStyle = (listType: 'unordered' | 'ordered') => {
       const newListTag = listType === 'unordered' ? 'UL' : 'OL'
       const newList = document.createElement(newListTag)
 
-      // 既存のLI要素を新しいリストに移動
-      while (listElement.firstChild) {
-        newList.appendChild(listElement.firstChild)
+      // 現在のli要素の内容を新しいリストに移動
+      const currentListItem = document.createDocumentFragment()
+      while (listItemElement.firstChild) {
+        currentListItem.appendChild(listItemElement.firstChild)
       }
-      listElement.parentNode?.replaceChild(newList, listElement)
-    }
+      // 新しいリストアイテムを作成
+      const newListItem = document.createElement('li')
+      newListItem.appendChild(currentListItem)
+      newList.appendChild(newListItem)
 
-    // カーソルを元の位置に維持
-    const targetRange = document.getSelection()?.focusNode
-    const newRange = document.createRange()
-    newRange.setStart(targetRange!, 0)
-    selection.removeAllRanges()
-    selection.addRange(newRange)
+      // 既存のLI要素を新しいリストに移動
+      listElement.parentNode?.replaceChild(newList, listElement)
+      // カーソルを新しいli要素の末尾に移動
+      const newRange = document.createRange()
+      newRange.selectNodeContents(newListItem)
+      newRange.collapse(false) // カーソルをブロックの末尾に移動
+      selection.removeAllRanges()
+      selection.addRange(newRange)
+    }
   } else {
     // リスト要素が見つからない場合、新しいリストを作成
     const newListTag = listType === 'unordered' ? 'UL' : 'OL'
     const newList = document.createElement(newListTag)
     const newListItem = document.createElement('li')
 
-    if (selectedText.length > 0) {
-      // 選択範囲がある場合、内容を新しいLIに追加
-      newListItem.appendChild(range.extractContents())
-    } else {
-      // 選択範囲がない場合、空のZWSを挿入
-      newListItem.appendChild(document.createTextNode('\uFEFF'))
+    // 要素にカーソルがある場合、リストを作成
+    let newListElement: HTMLElement | null = commonAncestor
+    while (newListElement.firstChild) {
+      newListItem.appendChild(newListElement.firstChild)
     }
+    newListElement.parentNode?.replaceChild(newListItem, newListElement)
 
     newList.appendChild(newListItem)
     range.insertNode(newList)
