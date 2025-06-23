@@ -464,6 +464,39 @@ const onListStyle = (listType: 'unordered' | 'ordered') => {
   updateContent()
 }
 
+// 文字色を変更する
+const onColorStyle = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const corlor = target.value
+
+  const selection = getSelection()
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+  const selectedText = range.toString()
+
+  if (selectedText.length === 0) {
+    // 選択範囲がない場合は、カーソル位置に空の要素を挿入
+    const span = document.createElement('span')
+    span.style.color = corlor
+    span.appendChild(document.createTextNode('\uFEFF')) // ZWSを挿入
+    range.insertNode(span)
+
+    // カーソルを新しい要素の中に維持
+    range.setStart(span.firstChild!, 1)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  } else {
+    // 選択範囲がある場合は、spanタグで囲む
+    const span = document.createElement('span')
+    span.style.color = corlor
+    span.appendChild(range.extractContents()) // 選択範囲の内容をspanに挿入
+    range.insertNode(span) // spanを選択範囲の位置に挿入
+  }
+  updateContent()
+}
+
 // スタイルを適用した後、htmlプレビューを更新
 const updateContent = () => {
   if (editValue.value) {
@@ -487,7 +520,7 @@ const updateContent = () => {
         <button @click="onListStyle('ordered')" id="list">番号リスト</button>
 
         <label for="textColor">文字色：</label>
-        <input type="color" @input="onColorStyle($event)" id="textColor" value="#333333" />
+        <input type="color" @change="onColorStyle($event)" id="textColor" value="#333333" />
 
         <label for="other">その他：</label>
         <button @click="onStyle('bold')" id="other">太字</button>
