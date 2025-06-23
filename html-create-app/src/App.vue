@@ -415,11 +415,52 @@ const onHeaedingStyle = (headingType: string) => {
     blockElement = blockElement.parentElement
   }
 
-  if (!blockElement || blockElement === editValue.value) {
-    // ブロック要素が見つからない場合、新しいPタグを作成して適用
-    setStyle(range, headingType)
+  // 既存のブロック要素が見つかり、それがクリックされたheadingTypeと同じであれば解除（Pタグに変換）
+  if (
+    blockElement &&
+    blockElement !== editValue.value &&
+    blockElement.nodeName.toLowerCase() === headingType
+  ) {
+    const newParagraph = document.createElement('p')
+    // ブロック要素の内容を新しいPタグに移動
+    while (blockElement.firstChild) {
+      newParagraph.appendChild(blockElement.firstChild)
+    }
+    blockElement.parentNode?.replaceChild(newParagraph, blockElement)
+
+    // カーソルを新しいPタグの中に維持
+    const newRange = document.createRange()
+    newRange.selectNodeContents(newParagraph)
+    newRange.collapse(false) // カーソルをブロックの末尾に移動
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+  } else if (
+    !blockElement ||
+    blockElement === editValue.value ||
+    !['P', 'H1', 'H2', 'H3'].includes(blockElement.nodeName)
+  ) {
+    // editValueの直下、P, H1, H2, H3 以外のブロック要素（LIなど）の場合、新しい headingType のタグを作成して適用
+    const newBlock = document.createElement(headingType)
+    if (blockElement && blockElement !== editValue.value) {
+      // 既存のブロック要素の内容を新しい見出しタグに移動
+      while (blockElement.firstChild) {
+        newBlock.appendChild(blockElement.firstChild)
+      }
+      blockElement.parentNode?.replaceChild(newBlock, blockElement)
+    } else {
+      // 要素自体が存在しない場合、空のブロック要素を作成
+      newBlock.appendChild(range.extractContents())
+      range.insertNode(newBlock)
+    }
+
+    // カーソルを新しいブロック要素の中に維持
+    const newRange = document.createRange()
+    newRange.selectNodeContents(newBlock)
+    newRange.collapse(false) // カーソルをブロックの末尾に移動
+    selection.removeAllRanges()
+    selection.addRange(newRange)
   } else {
-    // 既存のブロック要素を新しいタグに置き換える
+    // 既存のブロック要素がP, H1, H2, H3 のいずれかで、クリックされた headingType と異なる場合、タグを置き換える
     const newBlock = document.createElement(headingType)
     while (blockElement.firstChild) {
       newBlock.appendChild(blockElement.firstChild)
