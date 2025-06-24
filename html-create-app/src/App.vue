@@ -9,7 +9,8 @@ const previewValue = ref('')
 // マウント時にサンプル表示
 onMounted(() => {
   if (editValue.value) {
-    editValue.value.innerHTML = '<p>ここに文字を入力してください</p>'
+    editValue.value.innerHTML =
+      '<p>ここに入力したテキストを元に、右側の<strong>HTML生成画面</strong>が更新されます。<br>ご利用の際は、こちらのテキストをすべて削除してお使いください。</p><p><br></p><h3>入力時の注意点</h3><ul><li>文字色は「<span style="color: #ff0000">カラーピッカー</span>」を採用しています。<br>カラーピッカーで色を選択後、「<strong>反映</strong>」ボタンをクリックしてください。</li><li>Enterキー押下時、見た目は改行されていますが、厳密には「<span style="color: #0000ff">改段落</span>」となります。<br>純粋な改行&lt;br&gt;を使用したい場合は、<span style="text-decoration: underline;"><strong><span style="color: #0000ff"><span style="color: #333333">Shift+Enter</span></span></strong></span>で改行をしてください。</li><li><span style="color: #ff0000"><strong>認識しているバグがあります。</strong></span>なにか気になる問題点があれば教えて下さい。善処します。</li></ul><p><br></p><h3>最後に</h3><p>ここまで読んでいただきありがとうございます。<br>htmlプレビューサイトを作成した際に、「htmlをプレビューできるっていうことは、htmlを生成できるのでは？」と思い立ち作成しました。後悔しています。<br>後に、「WYSIWYG」という言葉とともに車輪の再々々開発なんだと知りました。</p><p>機能改善・追加は随時実施予定です。<br></p>'
     previewValue.value = editValue.value.innerHTML
     // console.log(previewValue.value)
   }
@@ -647,7 +648,7 @@ const updateContent = () => {
     </div>
 
     <div class="previewArea">
-      <h3>HTMLプレビュー</h3>
+      <h3>HTML生成</h3>
       <div class="htmlPreview">{{ previewValue }}</div>
     </div>
   </div>
