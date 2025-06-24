@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 
 // WYSIWYGエリアの中身
 const editValue = ref<HTMLElement | null>(null)
@@ -24,8 +24,48 @@ const isEditArea = (selection: Selection | null): boolean => {
 
 // ユーザーの入力内容をプレビューに反映
 const onInput = (e: Event) => {
-  const targetElement = e.target as HTMLElement
-  previewValue.value = targetElement.innerHTML
+  // const targetElement = e.target as HTMLElement
+  // previewValue.value = targetElement.innerHTML
+
+  if (!editValue.value) return // editValueがnullの場合は何もしない
+
+  // カーソルの位置を保存
+  const selection = getSelection()
+  let savedRange: Range | null = null
+  if (selection && selection.rangeCount > 0) {
+    savedRange = selection.getRangeAt(0).cloneRange()
+  }
+
+  // DOMが更新される前にdivをpに変換
+  normalizeDivToP()
+
+  // nextTickでDOM更新後にプレビューとカーソル位置を更新
+  nextTick(() => {
+    if (editValue.value) {
+      // プレビューの更新
+      previewValue.value = editValue.value.innerHTML
+    }
+    // カーソル位置の復元
+    if (savedRange && selection) {
+      // カーソル位置と選択範囲がある場合
+      try {
+        selection.removeAllRanges() // 既存の選択範囲をクリア
+        selection.addRange(savedRange) // 保存した範囲を再設定
+      } catch (error) {
+        // 何らかの理由でカーソル位置の復元に失敗した場合
+        console.error('カーソル位置の復元に失敗:', error)
+
+        // カーソルをeditValueの末尾に移動
+        const newrange = document.createRange()
+        if (editValue.value) {
+          newrange.selectNodeContents(editValue.value)
+          newrange.collapse(false) // カーソルを末尾に移動
+          selection.removeAllRanges()
+          selection.addRange(newrange)
+        }
+      }
+    }
+  })
 }
 
 // 現在の選択範囲を取得する関数
@@ -34,6 +74,25 @@ const getSelection = () => {
     return window.getSelection()
   }
   return null
+}
+
+// editValue内のdivタグをpタグに変換する関数
+const normalizeDivToP = () => {
+  if (!editValue.value) return // editValueがnullの場合は何もしない
+  // 取得時以降のDOM操作の影響を受けないよう、StaticNodeList(静的な配列)を使用
+  const divs = Array.from(editValue.value.querySelectorAll('div'))
+  divs.forEach((div) => {
+    // Enterキーで自動生成されるeditValue直下のdivタグをpタグに変換
+    if (div.parentNode === editValue.value) {
+      const p = document.createElement('p')
+      // divの子要素をpに移動
+      while (div.firstChild) {
+        p.appendChild(div.firstChild)
+      }
+      // divをpに置き換える
+      div.parentNode?.replaceChild(p, div)
+    }
+  })
 }
 
 /**
@@ -282,6 +341,7 @@ const onEmptyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'strikeThroug
       tagName = 'span'
       cssProperty = 'textDecoration'
       cssValue = 'underline'
+      break
     case 'strikeThrough':
       tagName = 'span'
       cssProperty = 'textDecoration'
